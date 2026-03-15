@@ -1,0 +1,45 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: BANK_DB
+      POSTGRES_PASSWORD: BANK_DB
+      POSTGRES_DB: BANK_DB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - internal-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKER_IMAGE:-bank-ms:latest}
+    depends_on:
+      - db
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://BANK_DB:BANK_DB@db:5432/BANK_DB
+    ports:
+      - "5000:5000"
+    networks:
+      - internal-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+
+networks:
+  internal-network:
+    name: internal-network
+    driver: bridge
+
