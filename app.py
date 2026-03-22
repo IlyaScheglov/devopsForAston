@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 # Подключение к базе данных
-DATABASE_URL = os.getenv("DATABASE_URL", "dbname=BANK_DB user=BANK_DB password=BANK_DB")
+DATABASE_URL = os.getenv("DATABASE_URL", "dbname=bankdb user=postgres password=postgres")
 conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
 

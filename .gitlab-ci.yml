@@ -1,10 +1,3 @@
-#Задать переменные в гите
-#CI_REGISTRY_IMAGE - Название имаджа
-#CI_PROJECT_DIR - какую-нибудь директорию в раннере для теста
-#CI_REGISTRY - адрес нексуса
-#CI_REGISTRY_USER - логин от нексуса
-#CI_REGISTRY_PASSWORD - пароль от нексуса
-
 stages:
   - build
   - test
@@ -36,7 +29,7 @@ build:
     - docker build --pull --cache-from "$IMAGE" -t "$IMAGE" .
     - docker push "$IMAGE"
   only:
-    - branches
+    - main
   tags:
     - docker
 
@@ -65,32 +58,36 @@ test:
     paths:
       - .cache/pip/
   only:
-    - branches
+    - main
   tags:
     - docker
 
-deploy:
+deploy_to_k8s:
   stage: deploy
+  image: bitnami/kubectl:latest
+  variables:
+    KUBE_NAMESPACE: bank-app
   script:
-    - echo "Тестовый старт deploy"
-
-#deploy:
-##  Это написал нейронка, я хз это будет работать или нет
-#  stage: deploy
-#  image: bitnami/kubectl:latest
-#  script:
-#    - echo "$KUBE_CONFIG_DATA" | base64 -d > kubeconfig
-#    - export KUBECONFIG="$PWD/kubeconfig"
-#    - |
-#      if kubectl -n test get deploy bank-ms >/dev/null 2>&1; then
-#        kubectl -n test set image deployment/bank-ms bank-ms="$IMAGE" --record
-#      else
-#        kubectl -n test apply -f k8s/
-#      fi
-#  environment:
-#    name: test
-#  only:
-#    - main
-#  when: manual
-#  tags:
-#    - kubectl
+    - echo "$KUBE_CONFIG_DATA" | base64 -d > kubeconfig
+    - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
+    - kubectl apply -f k8s/namespace.yaml
+    - kubectl apply -f k8s/secret.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/configmap.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/postgres-headless-svc.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/postgres-statefulset.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/postgres-exporter-deployment.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/microservice-service.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f k8s/microservice-deployment.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/prometheus-configmap.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/prometheus-deployment.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/alerts.yml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/grafana-datasource.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/grafana-deployment.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/grafana-dashboard-microservice.yaml -n $KUBE_NAMESPACE
+    - kubectl apply -f monitoring/grafana-dashboard-postgres.yaml -n $KUBE_NAMESPACE
+  only:
+    - main
+  when: manual
+  dependencies: []
+  tags:
+    - kuber

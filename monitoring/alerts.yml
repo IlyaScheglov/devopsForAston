@@ -1,0 +1,12 @@
+groups:
+  - name: microservice.rules
+    rules:
+      - alert: MicroserviceHighCPU
+        expr: |
+          sum by (pod) (rate(container_cpu_usage_seconds_total{image=~".*microservice.*"}[1m])) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage for microservice pod {{ $labels.pod }}"
+          description: "CPU usage >80% for more than 2 minutes"
